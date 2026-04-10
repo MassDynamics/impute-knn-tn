@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.so
+*.c
+!src/impute_knn_tn/_correlation.pyx
+
+# Environments
+.venv/
+.env/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp

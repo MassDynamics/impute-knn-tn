@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel", "cython>=3.0", "numpy>=1.24"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "impute-knn-tn"
+version = "0.1.0"
+description = "kNN-TN imputation: k-Nearest Neighbours with Truncated Normal for missing value imputation in mass spectrometry data"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pre-commit>=3.0",
+    "jupyter>=1.0",
+    "ipykernel>=6.0",
+    "matplotlib>=3.7",
+]
+r = [
+    "rpy2>=3.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ty.environment]
+python-version = "3.11"
+python = ".venv/bin/python"
+
+[tool.setuptools.packages.find]
+where = ["src"]

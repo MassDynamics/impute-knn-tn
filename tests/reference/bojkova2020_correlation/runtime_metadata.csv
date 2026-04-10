@@ -1,0 +1,2 @@
+"RVersion","replicateColname","featureColname","imputeMethod","distance","k","perc"
+"R version 4.3.3 (2024-02-29)","replicate","GroupId","kNN-TN","correlation",5,0.01
