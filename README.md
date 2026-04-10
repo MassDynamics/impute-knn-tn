@@ -15,8 +15,10 @@ For development:
 ```bash
 git clone https://github.com/MassDynamics/impute-knn-tn.git
 cd impute-knn-tn
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
+uv tool install ruff
+uv tool install ty
 pre-commit install
 ```
 
