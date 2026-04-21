@@ -79,6 +79,45 @@ def test_estimates_computation_parity(name, distance):
     np.testing.assert_allclose(py_params, r_params, rtol=1e-6, atol=1e-6)
 
 
+PARAM_ESTIMATE_DATASETS_PERC1 = [
+    ("targeted", "truncation"),
+    ("targeted", "correlation"),
+    ("untargeted", "truncation"),
+    ("untargeted", "correlation"),
+    ("real_data", "truncation"),
+    ("real_data", "correlation"),
+    ("sim", "truncation"),
+    ("sim", "correlation"),
+    ("synthetic_1000", "truncation"),
+    ("synthetic_1000", "correlation"),
+]
+
+
+@pytest.mark.parametrize("name,distance", PARAM_ESTIMATE_DATASETS_PERC1)
+def test_estimates_computation_parity_perc1(name, distance):
+    """ParamEstim matches R reference at perc=1.0 (GSimp default)."""
+    import pandas as pd
+    import os
+
+    ref_dir = os.path.join(os.path.dirname(__file__), "reference")
+    config = f"{name}_{distance}_perc1"
+    d = os.path.join(ref_dir, config)
+
+    inp = pd.read_csv(os.path.join(d, "input_matrix.csv"), index_col=0)
+    r_params = pd.read_csv(os.path.join(d, "param_estimates.csv"), index_col=0).values
+
+    log2_file = os.path.join(d, "log2.txt")
+    use_log2 = os.path.exists(log2_file) and open(log2_file).read().strip() == "true"
+
+    mat = inp.values.astype(np.float64)
+    if use_log2:
+        mat = np.log2(mat)
+
+    py_params = estimates_computation(mat, perc=1.0)
+
+    np.testing.assert_allclose(py_params, r_params, rtol=1e-6, atol=1e-6)
+
+
 def test_newton_raphson_sigma_negative_returns_error():
     """N-R should return error code when sigma goes negative."""
     data = np.array([1.0, 1.0, 1.0])  # zero variance

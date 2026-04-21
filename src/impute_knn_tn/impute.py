@@ -16,7 +16,7 @@ def knn_tn(
     data_wide: pd.DataFrame | np.ndarray,
     k: int = 5,
     distance: str = "truncation",
-    perc: float = 0.01,
+    perc: float = 1.0,
 ) -> np.ndarray:
     """kNN-TN imputation on a wide-format matrix.
 
@@ -31,7 +31,9 @@ def knn_tn(
     distance : str
         "truncation" or "correlation".
     perc : float
-        Percentile threshold for truncated normal estimation.
+        Missingness fraction threshold for truncated normal MLE.
+        Features with missingness >= perc skip MLE and use sample
+        mean/SD instead.  Default 1.0 matches GSimp's imputeKNN().
 
     Returns
     -------
@@ -132,7 +134,7 @@ def impute_knn_tn(
     replicate_col: str = "replicate",
     k: int = 5,
     distance: str = "truncation",
-    perc: float = 0.01,
+    perc: float = 1.0,
 ) -> dict[str, pd.DataFrame]:
     """kNN-TN imputation for long-format intensity data.
 
@@ -155,7 +157,9 @@ def impute_knn_tn(
     distance : str
         "truncation" or "correlation".
     perc : float
-        Percentile threshold for truncated normal estimation.
+        Missingness fraction threshold for truncated normal MLE.
+        Features with missingness >= perc skip MLE and use sample
+        mean/SD instead.  Default 1.0 matches GSimp's imputeKNN().
 
     Returns
     -------

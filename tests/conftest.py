@@ -9,10 +9,10 @@ REF_DIR = Path(__file__).parent / "reference"
 
 
 def load_matrix_reference(
-    name: str, distance: str
+    name: str, distance: str, suffix: str = ""
 ) -> tuple[np.ndarray, np.ndarray, bool]:
     """Load input/output matrix pair for a dataset config."""
-    d = REF_DIR / f"{name}_{distance}"
+    d = REF_DIR / f"{name}_{distance}{suffix}"
     inp = pd.read_csv(d / "input_matrix.csv", index_col=0)
     out = pd.read_csv(d / "output_matrix.csv", index_col=0)
     log2_file = d / "log2.txt"
@@ -21,10 +21,10 @@ def load_matrix_reference(
 
 
 def load_bojkova_reference(
-    distance: str,
+    distance: str, suffix: str = ""
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Load bojkova2020 input/output for a distance mode."""
-    d = REF_DIR / f"bojkova2020_{distance}"
+    d = REF_DIR / f"bojkova2020_{distance}{suffix}"
     inp_int = pd.read_csv(d / "input_intensities.csv")
     inp_meta = pd.read_csv(d / "input_metadata.csv")
     out_int = pd.read_csv(d / "output_intensities.csv")
