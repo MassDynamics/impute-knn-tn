@@ -20,3 +20,6 @@ build/
 .idea/
 .vscode/
 *.swp
+
+# Claude Code
+CLAUDE.md
