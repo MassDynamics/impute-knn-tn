@@ -96,30 +96,28 @@ def impute_knn_inner(
 ):
     """Run the full kNN inner loop in compiled C.
 
-    Modifies imp_knn in-place. Raises ValueError if fewer than k finite
-    distances are found for any missing value.
+    Modifies imp_knn in-place. Uses adaptive k when fewer than k finite
+    distances are available (minimum 2, otherwise raises ValueError).
 
-    Parameters
-    ----------
-    data : ndarray (n_features, n_samples) — standardized, with NaN for non-finite
-    imp_knn : ndarray (n_features, n_samples) — working copy, modified in-place
-    mv_rows, mv_cols : sorted missing value indices (column-first order)
-    unique_cols_arr : unique columns with missing values
-    col_starts_arr : start index in mv_rows/mv_cols for each unique column
-    k : number of neighbours
-    nr : number of rows (features)
+    Returns
+    -------
+    tuple (min_k_used, n_reduced)
+        min_k_used: smallest k actually used.
+        n_reduced: number of missing values where k was reduced.
     """
     cdef Py_ssize_t n_samples = data.shape[1]
     cdef Py_ssize_t n_unique = unique_cols_arr.shape[0]
     cdef Py_ssize_t n_mv = mv_rows.shape[0]
     cdef Py_ssize_t i, j, s, m, ci, si
     cdef Py_ssize_t start, end, gene_num, exp_num
-    cdef Py_ssize_t n_cand, n_finite
+    cdef Py_ssize_t n_cand, n_finite, k_eff
     cdef double xv, yv, xc, yc
     cdef double x_sum, y_sum, x_mean, y_mean
     cdef double xx_sum, yy_sum, xy_sum, denom
     cdef double d, r_val, min_pos, w_sum, imp_val
     cdef int count
+    cdef Py_ssize_t min_k_used = k
+    cdef Py_ssize_t n_reduced = 0
 
     # Temporary arrays — allocated once, reused across all missing values
     cdef long[:] cand_genes = np.empty(nr, dtype=np.int64)
@@ -233,28 +231,36 @@ def impute_knn_inner(
                 if not isinf(dist[ci2]) and not isnan(dist[ci2]):
                     n_finite += 1
 
-            if n_finite < k:
+            if n_finite < 2:
                 raise ValueError(
-                    f"Fewer than {k} finite distances found for feature {gene_num} "
-                    f"in sample {exp_num} ({n_finite} available)"
+                    f"Fewer than 2 finite distances found for feature {gene_num} "
+                    f"in sample {exp_num} ({n_finite} available). "
+                    f"Consider lowering k or removing sparse features."
                 )
 
-            # Find k nearest neighbours using partial sort
-            # Initialize with first k finite entries
-            _find_k_nearest(dist, n_cand, k, k_idx, k_dist)
+            k_eff = min(k, n_finite)
+            if k_eff < k:
+                n_reduced += 1
+                if k_eff < min_k_used:
+                    min_k_used = k_eff
+
+            # Find k_eff nearest neighbours using partial sort
+            _find_k_nearest(dist, n_cand, k_eff, k_idx, k_dist)
 
             # Compute weights and impute
             w_sum = 0.0
-            for si in range(k):
+            for si in range(k_eff):
                 w_sum += 1.0 / k_dist[si]
 
             imp_val = 0.0
-            for si in range(k):
+            for si in range(k_eff):
                 ci2 = k_idx[si]
                 j = cand_genes[ci2]
                 imp_val += (1.0 / k_dist[si]) / w_sum * (1.0 if r[ci2] >= 0 else -1.0) * data[j, exp_num]
 
             imp_knn[gene_num, exp_num] = imp_val
+
+    return (int(min_k_used), int(n_reduced))
 
 
 cdef void _find_k_nearest(

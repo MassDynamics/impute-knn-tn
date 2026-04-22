@@ -49,9 +49,18 @@ kNN-TN imputes missing values using correlation-based k-nearest neighbours with 
    - Compute pairwise-complete Pearson correlation with all candidate features
    - Select the k nearest neighbours by correlation distance (`1 - |r|`)
    - Impute as the signed, inverse-distance-weighted average of neighbours
+   - If fewer than k neighbours have finite distances, k is adaptively reduced (minimum 2) with a warning — see [Adaptive k](#adaptive-k) below
 3. **Inverse-standardise** to recover original scale.
 
 For full details on the R-to-Python translation, see [docs/r_vs_python_design.md](docs/r_vs_python_design.md).
+
+### Adaptive k
+
+When a feature has fewer than `k` neighbours with finite correlation distances (common with few samples or high missingness), `k` is automatically reduced to the number of available neighbours (minimum 2). A Python `warnings.warn()` is emitted reporting the number of affected values and the minimum `k` used.
+
+This is a deliberate improvement over the GSimp R package, which raises a hard error in this case. The adaptive approach follows the precedent of Bioconductor's `impute::impute.knn` (Troyanskaya et al., 2001). Using fewer neighbours increases variance but does not introduce systematic bias.
+
+For small-sample experiments (3-6 replicates), consider using `k=3` instead of the default `k=5`.
 
 ## R Parity
 

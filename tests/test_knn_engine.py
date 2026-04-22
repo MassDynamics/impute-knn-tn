@@ -1,5 +1,7 @@
 """Unit tests for knn_engine.py."""
 
+import warnings
+
 import numpy as np
 import pytest
 from impute_knn_tn.knn_engine import _pairwise_complete_cor, impute_knn
@@ -131,3 +133,49 @@ def test_impute_knn_does_not_mutate_input():
     impute_knn(data, k=2, distance="correlation")
     np.testing.assert_array_equal(data[~np.isnan(data)], original[~np.isnan(original)])
     assert np.isnan(data[0, 1])
+
+
+# ---- adaptive k ----
+
+
+def test_impute_knn_adaptive_k_warns():
+    """When fewer than k finite distances exist, k is reduced with a warning."""
+    # 10 features, 5 samples — enough for valid correlations but k=8 can't
+    # always be satisfied since some features share limited pairwise-complete obs.
+    np.random.seed(42)
+    data = np.random.rand(10, 5)
+    # Inject a single missing value — with k=8, need 8 finite distances
+    # from 9 candidates. With 5 samples, some correlations may be NaN.
+    data[0, 0] = np.nan
+    # Add missingness to reduce pairwise-complete counts for some candidates
+    data[3, 1] = np.nan
+    data[4, 2] = np.nan
+    data[5, 0] = np.nan
+    data[6, 1] = np.nan
+    data[7, 2] = np.nan
+    data[8, 0] = np.nan
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = impute_knn(data, k=8, distance="correlation")
+        k_warnings = [x for x in w if "k was reduced" in str(x.message)]
+
+    assert np.sum(np.isnan(result)) == 0, "Output should have no NaN"
+    assert len(k_warnings) > 0, "Should warn about k reduction"
+    assert "minimum k used=" in str(k_warnings[0].message)
+
+
+def test_impute_knn_adaptive_k_floor_error():
+    """When fewer than 2 finite distances exist, raise ValueError."""
+    # 3 features, 3 samples. Feature 0 has only 1 observed value and shares
+    # no pairwise-complete observations with the candidates (features 1-2),
+    # so all correlations are NaN -> 0 finite distances.
+    data = np.array(
+        [
+            [np.nan, np.nan, 1.0],  # target: only observed at sample 2
+            [1.0, 2.0, np.nan],  # candidate: observed at 0,1 — no overlap with target
+            [3.0, 4.0, np.nan],  # candidate: observed at 0,1 — no overlap with target
+        ]
+    )
+    with pytest.raises(ValueError, match="Fewer than 2"):
+        impute_knn(data, k=2, distance="correlation")

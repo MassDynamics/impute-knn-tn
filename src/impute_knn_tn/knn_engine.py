@@ -5,6 +5,8 @@ Reimplements imputeKNN from GSimp's Trunc_KNN/Imput_funcs.r.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from .truncnorm_mle import estimates_computation
 
@@ -94,9 +96,18 @@ def _pairwise_complete_cor(X: np.ndarray, y: np.ndarray) -> np.ndarray:
 def _impute_knn_inner_py(
     data, imp_knn, mv_rows, mv_cols, unique_cols, col_starts, k, nr
 ):
-    """Pure Python inner loop for kNN imputation."""
+    """Pure Python inner loop for kNN imputation.
+
+    Returns
+    -------
+    tuple (min_k_used, n_reduced)
+        min_k_used: smallest k actually used (equals k if no reduction needed).
+        n_reduced: number of missing values where k was reduced.
+    """
     t_data = data.T
     ngenes = np.arange(nr)
+    min_k_used = k
+    n_reduced = 0
 
     for i in range(len(unique_cols)):
         start = col_starts[i]
@@ -135,20 +146,29 @@ def _impute_knn_inner_py(
                 else:
                     dist[zero_mask] = 1.0
 
-            n_finite = np.sum(np.isfinite(dist))
-            if n_finite < k:
+            n_finite = int(np.sum(np.isfinite(dist)))
+            if n_finite < 2:
                 raise ValueError(
-                    f"Fewer than {k} finite distances found for feature {gene_num} "
-                    f"in sample {exp_num} ({n_finite} available)"
+                    f"Fewer than 2 finite distances found for feature {gene_num} "
+                    f"in sample {exp_num} ({n_finite} available). "
+                    f"Consider lowering k or removing sparse features."
                 )
 
-            top_k = np.argpartition(dist, k)[:k]
+            k_eff = min(k, n_finite)
+            if k_eff < k:
+                n_reduced += 1
+                if k_eff < min_k_used:
+                    min_k_used = k_eff
+
+            top_k = np.argpartition(dist, k_eff)[:k_eff]
             k_genes_ind = top_k[np.argsort(dist[top_k])]
             k_genes = cand_genes[k_genes_ind]
 
             w = 1.0 / dist[k_genes_ind]
             wghts = (w / np.sum(w)) * np.sign(r[k_genes_ind])
             imp_knn[gene_num, exp_num] = np.dot(wghts, data[k_genes, exp_num])
+
+    return min_k_used, n_reduced
 
 
 def impute_knn(
@@ -232,7 +252,7 @@ def impute_knn(
 
     # Dispatch to Cython or Python inner loop
     if _USE_CYTHON:
-        _impute_knn_inner_cy(
+        min_k_used, n_reduced = _impute_knn_inner_cy(
             np.ascontiguousarray(data),
             np.ascontiguousarray(imp_knn),
             mv_rows.astype(np.int64),
@@ -243,7 +263,7 @@ def impute_knn(
             nr,
         )
     else:
-        _impute_knn_inner_py(
+        min_k_used, n_reduced = _impute_knn_inner_py(
             data,
             imp_knn,
             mv_rows,
@@ -252,6 +272,14 @@ def impute_knn(
             col_starts,
             k,
             nr,
+        )
+
+    if n_reduced > 0:
+        warnings.warn(
+            f"k was reduced for {n_reduced} missing value(s) due to insufficient "
+            f"finite distances (requested k={k}, minimum k used={min_k_used}). "
+            f"This is common with few samples or high missingness.",
+            stacklevel=2,
         )
 
     # Inverse standardize

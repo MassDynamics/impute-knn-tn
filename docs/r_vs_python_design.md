@@ -601,8 +601,13 @@ for i in range(len(unique_cols)):
 | `dist[is.nan(dist) \| is.na(dist)] <- Inf` | `dist[np.isnan(dist)] = np.inf` | NaN distances excluded |
 | `dist[dist==0] <- ifelse(...)` | Zero-mask with `np.min(finite_pos) / 2` | Same logic, expanded for clarity |
 | `dist[abs(r) == 1] <- Inf` | `dist[np.abs(r) == 1] = np.inf` | Perfect correlations excluded |
-| `order(dist)[1:k]` | `np.argpartition(dist, k)[:k]` then sort | `order()` = `argsort()`. Python uses `argpartition` (O(n)) instead of full sort (O(n log n)) for performance, then sorts only the k elements for deterministic ordering. |
+| `if (sum(is.finite(dist)) < k) stop(...)` | Adaptive k (see below) | **Deliberate deviation from R** |
+| `order(dist)[1:k]` | `np.argpartition(dist, k_eff)[:k_eff]` then sort | `order()` = `argsort()`. Python uses `argpartition` (O(n)) instead of full sort (O(n log n)) for performance, then sorts only the k elements for deterministic ordering. |
 | `wghts %*% data[k.genes, exp.num]` | `np.dot(wghts, data[k_genes, exp_num])` | Weighted sum for imputation |
+
+**Adaptive k (deviation from R)**: GSimp's R implementation raises a hard error (`stop("Fewer than K finite distances found")`) when a feature has fewer than `k` neighbours with finite correlation distances. This is common with small-sample experiments (3-6 replicates) using the default `k=5`.
+
+The Python implementation instead reduces `k` to the number of available neighbours (minimum 2) and emits a `warnings.warn()`. This follows the precedent of Bioconductor's `impute::impute.knn` (Troyanskaya et al., 2001), the most widely used kNN imputation in genomics/proteomics. Using fewer neighbours increases variance but does not introduce systematic bias. If fewer than 2 finite distances exist, a `ValueError` is raised.
 
 ### Step 4: Inverse standardisation
 
